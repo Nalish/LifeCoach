@@ -10,7 +10,6 @@ if (!process.env.GEMINI_API_KEY) {
   throw new Error("Missing GEMINI_API_KEY in .env file");
 }
 
-// Initialize Gemini client with API key string
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 export const chatWithBot = asyncHandler(async (req: Request, res: Response) => {
@@ -23,24 +22,21 @@ export const chatWithBot = asyncHandler(async (req: Request, res: Response) => {
   }
 
   try {
-    // Get the model instance with strict limits for short responses
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-flash",
+    // ✅ Use latest supported model name
+    const model = genAI.getGenerativeModel({
+      model: "gemini-1.5-flash-latest",
       generationConfig: {
-        maxOutputTokens: 50, // very short responses
+        maxOutputTokens: 50,
         temperature: 0.7,
-      }
+      },
     });
 
-    // Create a prompt that encourages brief responses
     const prompt = `Give a brief, concise answer in 1-2 sentences: ${question}`;
 
-    // Generate content using the correct method
     const result = await model.generateContent(prompt);
-    const response =  result.response;
+    const response = result.response;
     const answer = response.text() || "I'm not sure how to respond.";
 
-    // Save to database
     await pool.query(
       "INSERT INTO chathistory (user_id, question, answer) VALUES ($1, $2, $3)",
       [user_id, question, answer]
