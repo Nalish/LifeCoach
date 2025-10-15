@@ -1,6 +1,5 @@
 import React, { useState, useRef } from "react";
-import type{ ChangeEvent } from "react";
-import type{ MouseEvent } from "react";
+import type { ChangeEvent, MouseEvent } from "react";
 import { motion } from "framer-motion";
 import { X, MessageCircle, Send } from "lucide-react";
 import "../styles/Chatbot.css";
@@ -16,8 +15,12 @@ const Chatbot: React.FC = () => {
     { sender: "bot", text: "Hello! How can I help you today?" },
   ]);
   const [input, setInput] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
 
   const modalRef = useRef<HTMLDivElement>(null);
+
+  // ⚙️ Replace this with the logged-in user's ID
+  const userId = 1; // Or dynamically get from auth context/session
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value);
@@ -26,21 +29,45 @@ const Chatbot: React.FC = () => {
   const handleSend = async () => {
     if (!input.trim()) return;
 
-    const newMessage: Message = { sender: "user", text: input };
-    setMessages((prev) => [...prev, newMessage]);
+    const userMessage: Message = { sender: "user", text: input };
+    setMessages((prev) => [...prev, userMessage]);
     setInput("");
+    setLoading(true);
 
-    // Simulate AI reply (replace with backend call later)
-    setTimeout(() => {
+    try {
+      // 🔗 Backend endpoint (adjust for your setup)
+      const response = await fetch("http://localhost:3000/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: userId,
+          question: input,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Backend returned an error");
+
+      const data = await response.json();
+
+      // Expect backend response { reply: "..." }
       const botReply: Message = {
         sender: "bot",
-        text: "Got it! (AI response placeholder)",
+        text: data.reply || "Sorry, I didn’t understand that.",
       };
+
       setMessages((prev) => [...prev, botReply]);
-    }, 800);
+    } catch (err) {
+      console.error("Error:", err);
+      setMessages((prev) => [
+        ...prev,
+        { sender: "bot", text: "⚠️ Unable to reach the server. Please try again." },
+      ]);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // ✅ Close chatbot when user clicks outside modal
+  // Close chatbot when user clicks outside modal
   const handleOverlayClick = (e: MouseEvent<HTMLDivElement>) => {
     if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
       setIsOpen(false);
@@ -83,15 +110,18 @@ const Chatbot: React.FC = () => {
                   {msg.text}
                 </div>
               ))}
+
+              {loading && <div className="message bot">Typing...</div>}
             </div>
 
             <div className="chatbot-input">
               <input
                 value={input}
                 onChange={handleInputChange}
-                placeholder="Type a message..."
+                placeholder="Type your question..."
+                onKeyDown={(e) => e.key === "Enter" && handleSend()}
               />
-              <button onClick={handleSend} className="send-btn">
+              <button onClick={handleSend} className="send-btn" disabled={loading}>
                 <Send size={16} />
               </button>
             </div>
